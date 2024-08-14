@@ -1,7 +1,6 @@
 import numpy as np
 import numpy.linalg as la
 
-
 class Kernel(object):
     """Implements list of kernels from
     http://en.wikipedia.org/wiki/Support_vector_machine

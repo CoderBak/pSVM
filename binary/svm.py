@@ -1,7 +1,7 @@
+# A modified version of svmpy package.
+
 import numpy as np
 import cvxpy as cp
-import cvxopt.solvers
-import logging
 
 MIN_SUPPORT_VECTOR_MULTIPLIER = 1e-5
 
@@ -10,7 +10,7 @@ class SVMTrainer(object):
         self._kernel = kernel
         self._c = c
         self._p = p
-        self._gamma = p / (p - 1) if self._p != 1 else 1.0
+        self._gamma = p / (p - 1) if self._p != 1 else 2.0
         self._theta = (c ** (1 - self._gamma)) * (p ** (-self._gamma)) * (p - 1)
 
     def train(self, X, y):
@@ -23,7 +23,6 @@ class SVMTrainer(object):
     def _gram_matrix(self, X):
         n_samples, n_features = X.shape
         K = np.zeros((n_samples, n_samples))
-        # TODO(tulloch) - vectorize
         for i, x_i in enumerate(X):
             for j, x_j in enumerate(X):
                 K[i, j] = self._kernel(x_i, x_j)
@@ -58,54 +57,27 @@ class SVMTrainer(object):
             support_vector_labels=support_vector_labels)
 
     def _compute_multipliers(self, X, y):
-        """ The original code:
-        n_samples, n_features = X.shape
-
-        K = self._gram_matrix(X)
-        # Solves
-        # min 1/2 x^T P x + q^T x
-        # s.t.
-        #  Gx \coneleq h
-        #  Ax = b
-
-        P = cvxopt.matrix(np.outer(y, y) * K)
-        q = cvxopt.matrix(-1 * np.ones(n_samples))
-
-        # -a_i \leq 0
-        # TODO(tulloch) - modify G, h so that we have a soft-margin classifier
-        G_std = cvxopt.matrix(np.diag(np.ones(n_samples) * -1))
-        h_std = cvxopt.matrix(np.zeros(n_samples))
-
-        # a_i \leq c
-        G_slack = cvxopt.matrix(np.diag(np.ones(n_samples)))
-        h_slack = cvxopt.matrix(np.ones(n_samples) * self._c)
-
-        G = cvxopt.matrix(np.vstack((G_std, G_slack)))
-        h = cvxopt.matrix(np.vstack((h_std, h_slack)))
-
-        A = cvxopt.matrix(y, (1, n_samples))
-        b = cvxopt.matrix(0.0)
-
-        solution = cvxopt.solvers.qp(P, q, G, h, A, b, options={'show_progress': False})
-
-        # Lagrange multipliers
-        return np.ravel(solution['x'])
-        """
-
         n_samples, n_features = X.shape
 
         K = self._gram_matrix(X)
         P = np.outer(y, y) * K
-        q = -1 * np.ones(n_samples)
         G = np.diag(np.ones(n_samples) * -1)
         h = np.ravel(np.zeros(n_samples))
         A = np.asmatrix(y).reshape(1, -1)
         b = 0.0
 
         x = cp.Variable(n_samples)
-        prob = cp.Problem(cp.Minimize((1/2) * cp.quad_form(x, P) + q.T @ x - self._theta * (q.T @ (x ** self._gamma))),
-                          [G @ x <= h, A @ x == b])
-        prob.solve()
+
+        if self._p != 1:
+            prob = cp.Problem(cp.Minimize(0.5 * cp.quad_form(x, P)
+                                        - cp.sum(x)
+                                        + self._theta * cp.sum(cp.power(x, self._gamma))),
+                            [G @ x <= h, A @ x == b])
+        else:
+            prob = cp.Problem(cp.Minimize(0.5 * cp.quad_form(x, P)
+                                        - cp.sum(x)),
+                            [G @ x <= h, A @ x == b])
+        prob.solve(solver=cp.GUROBI)
 
         return np.ravel(x.value)
 
