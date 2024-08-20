@@ -1,6 +1,5 @@
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.model_selection import KFold
 
 # Self-defined utils
 import pSMO
@@ -25,5 +24,5 @@ eval("dermatology", 2, 3.5, 5000)
 eval("dermatology", 1.5, 2, 5000)
 eval("vehicle", 2, 4, 10000)
 eval("vehicle", 1.5, 2.25, 10000)
-eval("USPS", 2, 0.25, 100000, True)
+eval("USPS", 2, 0.25, 300000, True)
 eval("USPS", 1.5, 0.25, 100000, True)
